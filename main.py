@@ -130,6 +130,7 @@ async def main():
         )
         app.total_tasks = num_tasks
 
+        result_future = asyncio.Future()
         run_suite_coro = run_suite(
             suite=suite_instance,
             subnet_tag=args.subnet_tag,
@@ -139,9 +140,19 @@ async def main():
             max_workers=max_workers,
             output_dir_prefix=all_results_dir,
             app=app,
+            result_future=result_future,
         )
         app.run_suite_coro = run_suite_coro
         await app.run_async()
+
+        # After the TUI has finished, wait for the result and analyze it
+        results_filename = await result_future
+        if results_filename:
+            console.print(
+                f"\n--- Analysis for [bold cyan]{suite_class.__name__}[/bold cyan] ---"
+            )
+            analyze_results(results_filename)
+            console.print("----------------------------------------")
 
 
 if __name__ == "__main__":

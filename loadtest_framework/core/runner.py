@@ -3,7 +3,7 @@ import json
 import os
 import threading
 from datetime import datetime, timedelta
-from typing import Callable
+from typing import Callable, Optional
 
 from yapapi import Golem
 from yapapi.events import Event
@@ -47,6 +47,7 @@ async def run_suite(
     max_workers: int,
     output_dir_prefix: str = None,
     app: "TUI" = None,
+    result_future: Optional[asyncio.Future] = None,
 ):
     """Runs a given test suite."""
     clear_events_log()
@@ -113,5 +114,7 @@ async def run_suite(
         json.dump(get_events_log(), f, indent=4)
 
     print(f"Event logs saved to {results_filename}")
-    analyze_results(results_filename)
+    if result_future:
+        result_future.set_result(results_filename)
+
     return results_filename
