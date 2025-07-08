@@ -17,7 +17,7 @@ from utils import (
 )
 
 
-def main():
+async def main():
     parser = build_parser("Golem Load Testing Framework")
     parser.add_argument(
         "suites",
@@ -108,10 +108,7 @@ def main():
             max_workers = args.max_workers or settings.get("max_workers", 6)
             iterations = args.iterations or settings.get("iterations", 100000)
 
-            if "CpuStressSuite" in suite_class.__name__:
-                suite_instance = suite_class(iterations=iterations)
-            else:
-                suite_instance = suite_class()
+            suite_instance = suite_class(iterations=iterations) if "CpuStressSuite" in suite_class.__name__ else suite_class()
 
         except (ImportError, AttributeError) as e:
             console.print(
@@ -126,22 +123,24 @@ def main():
         console.print(f"    - max_workers: {max_workers}")
         if "CpuStressSuite" in suite_class.__name__:
             console.print(f"    - iterations: {iterations}")
-            console.print("----------------------------------------")
-    
-            app = TUI()
-            run_suite_coro = run_suite(
-                suite=suite_instance,
-                subnet_tag=args.subnet_tag,
-                payment_driver=args.payment_driver,
-                payment_network=args.payment_network,
-                num_tasks=num_tasks,
-                max_workers=max_workers,
-                output_dir_prefix=all_results_dir,
-                app=app,
-            )
-            app.run_suite_coro = run_suite_coro
-            app.run()
+        console.print("----------------------------------------")
+
+        app = TUI(suite_name=suite_class.__name__, start_time=datetime.now())
+        app.total_tasks = num_tasks
+
+        run_suite_coro = run_suite(
+            suite=suite_instance,
+            subnet_tag=args.subnet_tag,
+            payment_driver=args.payment_driver,
+            payment_network=args.payment_network,
+            num_tasks=num_tasks,
+            max_workers=max_workers,
+            output_dir_prefix=all_results_dir,
+            app=app,
+        )
+        app.run_suite_coro = run_suite_coro
+        await app.run_async()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

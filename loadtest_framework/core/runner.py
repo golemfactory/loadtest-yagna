@@ -9,6 +9,7 @@ from yapapi import Golem
 from yapapi.events import Event
 from yapapi.log import enable_default_logger
 
+from loadtest_framework.analysis.analyzer import analyze_results
 from loadtest_framework.core.event_collector import (
     clear_events_log,
     event_consumer,
@@ -112,4 +113,5 @@ async def run_suite(
         json.dump(get_events_log(), f, indent=4)
 
     print(f"Event logs saved to {results_filename}")
+    analyze_results(results_filename)
     return results_filename
