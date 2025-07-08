@@ -118,14 +118,16 @@ async def main():
             continue
 
         console.print(f"\n--- Running suite: [bold cyan]{suite_class.__name__}[/bold cyan] ---")
-        console.print("  [bold]Settings:[/bold]")
-        console.print(f"    - num_tasks: {num_tasks}")
-        console.print(f"    - max_workers: {max_workers}")
-        if "CpuStressSuite" in suite_class.__name__:
-            console.print(f"    - iterations: {iterations}")
-        console.print("----------------------------------------")
 
-        app = TUI(suite_name=suite_class.__name__, start_time=datetime.now())
+        app = TUI(
+            suite_name=suite_class.__name__,
+            start_time=datetime.now(),
+            settings={
+                "num_tasks": num_tasks,
+                "max_workers": max_workers,
+                **({"iterations": iterations} if "CpuStressSuite" in suite_class.__name__ else {}),
+            },
+        )
         app.total_tasks = num_tasks
 
         run_suite_coro = run_suite(

@@ -31,7 +31,7 @@ class TUI(App):
 
     BINDINGS = [("d", "toggle_dark", "Toggle dark mode")]
 
-    def __init__(self, suite_name: str, start_time: datetime, **kwargs):
+    def __init__(self, suite_name: str, start_time: datetime, settings: dict, **kwargs):
         super().__init__(**kwargs)
         self.run_suite_coro = None
         self.providers_data = {}
@@ -39,6 +39,7 @@ class TUI(App):
         self.total_tasks = 0
         self.suite_name = suite_name
         self.start_time = start_time
+        self.settings = settings
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
@@ -137,8 +138,12 @@ class TUI(App):
     def update_suite_info(self):
         suite_info = self.query_one("#suite_info", Static)
         elapsed_time = datetime.now() - self.start_time
+        settings_str = "  |  ".join(
+            f"[bold]{k}:[/bold] {v}" for k, v in self.settings.items()
+        )
         suite_info.update(
-            f"Suite: [bold]{self.suite_name}[/bold]  |  Elapsed Time: [bold]{str(elapsed_time).split('.')[0]}[/bold]"
+            f"Suite: [bold]{self.suite_name}[/bold]  |  Elapsed Time: [bold]{str(elapsed_time).split('.')[0]}[/bold]\n"
+            f"Settings: {settings_str}"
         )
 
     def update_providers_table(self):
