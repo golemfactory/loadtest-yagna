@@ -1,11 +1,9 @@
 import os
-import aiofiles
-import aiofiles.os
 from typing import AsyncGenerator, List
 
 from yapapi import Task, WorkContext
 from yapapi.payload import vm
-from yapapi.script import Script
+from yapapi.script import CaptureContext, Script
 
 from loadtest_framework.suites.base_suite import BaseSuite
 
@@ -29,21 +27,17 @@ class NanoTaskSuite(BaseSuite):
     async def worker(self, context: WorkContext, tasks: AsyncGenerator[Task, None]):
         async for task in tasks:
             script: Script = context.new_script()
-            script.run("/bin/sh", "-c", "echo $((2+9)) > /golem/output/result.txt")
-            output_file = f"result_{task.id}.txt"
-            script.download_file("/golem/output/result.txt", output_file)
-
+            future_result = script.run(
+                "/bin/sh",
+                "-c",
+                "echo $((2+9))",
+                stdout=CaptureContext.build(fmt="str"),
+            )
             yield script
 
-            async with aiofiles.open(output_file, "r") as f:
-                result = (await f.read()).strip()
+            result = (await future_result).stdout.strip()
 
             if result == "11":
                 task.accept_result(result=result)
             else:
                 task.reject_task(reason=f"Incorrect result: expected 11, got {result}")
-
-            try:
-                await aiofiles.os.remove(output_file)
-            except FileNotFoundError:
-                pass

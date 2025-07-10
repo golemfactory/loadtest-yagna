@@ -48,6 +48,7 @@ async def run_suite(
     output_dir_prefix: str = None,
     app: "TUI" = None,
     result_future: Optional[asyncio.Future] = None,
+    use_ui: bool = True,
 ):
     """Runs a given test suite."""
     clear_events_log()
@@ -63,12 +64,14 @@ async def run_suite(
 
     start_time = datetime.now()
 
+    consumer = tui_event_consumer(app) if use_ui else event_consumer
+
     async with Golem(
         budget=10.0,
         subnet_tag=subnet_tag,
         payment_driver=payment_driver,
         payment_network=payment_network,
-        event_consumer=tui_event_consumer(app),
+        event_consumer=consumer,
     ) as golem:
         print_env_info(golem)
 
@@ -87,6 +90,14 @@ async def run_suite(
         completed_tasks_count = 0
         async for task in completed_tasks_iterator:
             completed_tasks_count += 1
+            if not use_ui:
+                print(
+                    f"\rTasks computed: {completed_tasks_count}/{len(tasks)}",
+                    end="",
+                )
+
+        if not use_ui:
+            print()  # Newline after the progress counter
 
         print(
             f"{TEXT_COLOR_CYAN}"

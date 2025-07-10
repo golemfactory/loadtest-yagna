@@ -39,6 +39,11 @@ async def main():
         type=int,
         help="Number of iterations for CPU stress test",
     )
+    parser.add_argument(
+        "--no-ui",
+        action="store_true",
+        help="Run without the Textual UI",
+    )
 
     args = parser.parse_args()
 
@@ -119,16 +124,19 @@ async def main():
 
         console.print(f"\n--- Running suite: [bold cyan]{suite_class.__name__}[/bold cyan] ---")
 
-        app = TUI(
-            suite_name=suite_class.__name__,
-            start_time=datetime.now(),
-            settings={
-                "num_tasks": num_tasks,
-                "max_workers": max_workers,
-                **({"iterations": iterations} if "CpuStressSuite" in suite_class.__name__ else {}),
-            },
-        )
-        app.total_tasks = num_tasks
+        use_ui = not args.no_ui
+        app = None
+        if use_ui:
+            app = TUI(
+                suite_name=suite_class.__name__,
+                start_time=datetime.now(),
+                settings={
+                    "num_tasks": num_tasks,
+                    "max_workers": max_workers,
+                    **({"iterations": iterations} if "CpuStressSuite" in suite_class.__name__ else {}),
+                },
+            )
+            app.total_tasks = num_tasks
 
         result_future = asyncio.Future()
         run_suite_coro = run_suite(
@@ -141,9 +149,14 @@ async def main():
             output_dir_prefix=all_results_dir,
             app=app,
             result_future=result_future,
+            use_ui=use_ui,
         )
-        app.run_suite_coro = run_suite_coro
-        await app.run_async()
+
+        if use_ui:
+            app.run_suite_coro = run_suite_coro
+            await app.run_async()
+        else:
+            await run_suite_coro
 
         # After the TUI has finished, wait for the result and analyze it
         results_filename = await result_future

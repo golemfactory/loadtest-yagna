@@ -169,3 +169,14 @@ class TUI(App):
     async def run_async(self):
         """Run the app asynchronously."""
         await self._process_messages()
+
+
+
+class NoTUI:
+    """A no-op TUI for running without the UI."""
+
+    def post_message(self, *args, **kwargs):
+        pass
+
+    def exit(self, *args, **kwargs):
+        pass
