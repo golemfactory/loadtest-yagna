@@ -1,4 +1,6 @@
 import os
+import aiofiles
+import aiofiles.os
 from typing import AsyncGenerator, List
 
 from yapapi import Task, WorkContext
@@ -33,13 +35,15 @@ class NanoTaskSuite(BaseSuite):
 
             yield script
 
-            with open(output_file, "r") as f:
-                result = f.read().strip()
+            async with aiofiles.open(output_file, "r") as f:
+                result = (await f.read()).strip()
 
             if result == "11":
                 task.accept_result(result=result)
             else:
                 task.reject_task(reason=f"Incorrect result: expected 11, got {result}")
 
-            if os.path.exists(output_file):
-                os.remove(output_file)
+            try:
+                await aiofiles.os.remove(output_file)
+            except FileNotFoundError:
+                pass

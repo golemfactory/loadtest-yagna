@@ -56,7 +56,7 @@ async def run_suite(
 
     # TODO: Make timeout configurable
     init_overhead = 3
-    min_timeout, max_timeout = 6, 30
+    min_timeout, max_timeout = 6, 120
     timeout = timedelta(
         minutes=max(min(init_overhead + len(tasks) * 2, max_timeout), min_timeout)
     )
