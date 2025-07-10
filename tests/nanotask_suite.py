@@ -1,4 +1,3 @@
-import os
 from typing import AsyncGenerator, List
 
 from yapapi import Task, WorkContext
@@ -26,20 +25,11 @@ class NanoTaskSuite(BaseSuite):
 
     async def worker(self, context: WorkContext, tasks: AsyncGenerator[Task, None]):
         async for task in tasks:
-            script: Script = context.new_script()
-            script.run("/bin/sh", "-c", "echo $((2+9)) > /golem/output/result.txt")
-            output_file = f"result_{task.id}.txt"
-            script.download_file("/golem/output/result.txt", output_file)
-
+            script = context.new_script()
+            future_result = script.run("/bin/sh", "-c", "echo $((2+9))")
             yield script
-
-            with open(output_file, "r") as f:
-                result = f.read().strip()
-
+            result = future_result.result().stdout.decode("utf-8").strip()
             if result == "11":
                 task.accept_result(result=result)
             else:
                 task.reject_task(reason=f"Incorrect result: expected 11, got {result}")
-
-            if os.path.exists(output_file):
-                os.remove(output_file)
