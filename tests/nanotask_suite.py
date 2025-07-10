@@ -1,3 +1,4 @@
+import asyncio
 from typing import AsyncGenerator, List
 
 from yapapi import Task, WorkContext
@@ -24,12 +25,17 @@ class NanoTaskSuite(BaseSuite):
         return [Task(data=i) for i in range(num_tasks)]
 
     async def worker(self, context: WorkContext, tasks: AsyncGenerator[Task, None]):
-        async for task in tasks:
-            script = context.new_script()
-            future_result = script.run("/bin/sh", "-c", "echo $((2+9))")
-            yield script
-            result = future_result.result().stdout.decode("utf-8").strip()
+        async def process_result(task, future_result):
+            loop = asyncio.get_running_loop()
+            run_result = await loop.run_in_executor(None, future_result.result)
+            result = run_result.stdout.decode("utf-8").strip()
             if result == "11":
                 task.accept_result(result=result)
             else:
                 task.reject_task(reason=f"Incorrect result: expected 11, got {result}")
+
+        async for task in tasks:
+            script = context.new_script()
+            future_result = script.run("/bin/sh", "-c", "echo $((2+9))")
+            yield script
+            asyncio.create_task(process_result(task, future_result))
