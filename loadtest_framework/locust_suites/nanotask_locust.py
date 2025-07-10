@@ -34,6 +34,8 @@ class YagnaClient:
         }
         self.api_client = None
         self.market_api = None
+        self.demand_props = None
+        self.demand_constraints = None
 
     async def init_client(self):
         if self.api_client is None:
@@ -73,7 +75,9 @@ class YagnaClient:
         await strategy.decorate_demand(builder)
         
         try:
-            subscription = await self.market_api.subscribe(builder.properties, builder.constraints)
+            self.demand_props = builder.properties
+            self.demand_constraints = builder.constraints
+            subscription = await self.market_api.subscribe(self.demand_props, self.demand_constraints)
             logging.info(f"Subscribed to demand with subscriptionId: {subscription.id}")
             return subscription
         except Exception as e:
@@ -84,13 +88,24 @@ class YagnaClient:
         logging.info(f"Collecting proposals for subscription: {subscription.id}")
         start_time = time.time()
         proposals_received = 0
-        while time.time() - start_time < 30:
+        our_proposal_ids = set()
+        while time.time() - start_time < 5:
             try:
                 logging.info("Waiting for proposal events...")
                 async for proposal in subscription.events():
                     proposals_received += 1
-                    logging.info(f"Collected proposal: {proposal.id}")
-                    return proposal.id
+                    logging.info(f"Collected proposal: {proposal.id}, is_draft: {proposal.is_draft}, prev_proposal_id: {proposal._proposal.proposal.prev_proposal_id}")
+
+                    if not proposal.is_draft:
+                        if proposal._proposal.proposal.prev_proposal_id in our_proposal_ids:
+                            logging.info(f"Provider accepted our proposal. Creating agreement for {proposal.id}")
+                            return proposal.id
+                        else:
+                            # New proposal from a provider, let's respond.
+                            logging.info(f"Responding to initial proposal: {proposal.id}")
+                            our_proposal_id = await proposal.respond(self.demand_props, self.demand_constraints)
+                            our_proposal_ids.add(our_proposal_id)
+                            logging.info(f"Responded with our proposal: {our_proposal_id}")
             except asyncio.TimeoutError:
                 logging.info("Timeout waiting for proposal, retrying...")
                 pass
