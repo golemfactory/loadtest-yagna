@@ -1,4 +1,0 @@
-yapapi
-rich
-textual
-aiofiles
