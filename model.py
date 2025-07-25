@@ -10,6 +10,7 @@ class Proposal(BaseModel):
     state: str = Field(default="")
     reason: str = Field(default="")
     proposal_id: str = Field(default="", alias="proposalId")
+    provider_id: str = Field(default="", alias="issuerId")
 
 class Demand(BaseModel):
     properties: dict = Field(default_factory=dict)

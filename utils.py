@@ -1,15 +1,12 @@
 import logging
 from functools import lru_cache
 import requests
-import time
 from datetime import datetime, timezone, timedelta
 
 from model import Demand
 
 @lru_cache(maxsize=100)
 def calculate_task_package(image_tag: str):
-    # 'https://registry.golem.network/v1/image/info?count=true&tag=golem/alpine:latest'
-    # TODO calculate it asking golem registry
     logging.debug(f"Calculating task package for {image_tag}")
     response = requests.get(f"https://registry.golem.network/v1/image/info?count=true&tag={image_tag}")
     if response.status_code != 200:

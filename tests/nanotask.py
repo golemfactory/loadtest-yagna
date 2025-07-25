@@ -1,4 +1,5 @@
 import os
+import logging.config
 from datetime import datetime, timedelta
 import math
 import logging
@@ -17,6 +18,29 @@ class YagnaRequestor(YagnaHttpUser):
     lasting = float(os.getenv("RENT_TIME", 10 * 60))
     payment_platform = os.getenv("PAYMENT_PLATFORM", "erc20-polygon-glm")
     margin = float(os.getenv("MARGIN", 2 * 60))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        logging.config.dictConfig({
+            "version": 1,
+            "formatters": {
+                "default": {
+                    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                }
+            },
+            "handlers": {
+                "console": {
+                    "class": "logging.StreamHandler",
+                    "formatter": "default"
+                },
+                "file": {
+                    "class": "logging.FileHandler",
+                    "formatter": "default",
+                    "filename": "load_test.log"
+                }
+            },
+            "root": {"handlers": ["console", "file"], "level": "INFO"}
+        })
 
     @task
     def run_test_flow(self):
@@ -60,19 +84,22 @@ class YagnaRequestor(YagnaHttpUser):
         agreement_id: str | None = self.arrange_agreement(proposals, expiration)
         if agreement_id is None:
             logging.error("Failed to arrange agreement")
+            self.clear_all(subscription_id, agreement_id, allocation_id)
             return
-        logging.info(f"Agreement id: {agreement_id}")
+        logging.info(f"Arranged agreement id: {agreement_id}")
 
         # create activity
         activity_id: str | None = self.create_activity(agreement_id)
         if activity_id is None:
             logging.error("Failed to create activity")
+            self.clear_all(subscription_id, agreement_id, allocation_id)
             return
-        logging.info(f"Activity id: {activity_id}")
+        logging.info(f"Created activity id: {activity_id} for agreement {agreement_id}")
 
         # launch VM and wait for it to be ready
         if not self.prepare_vm_for_activity(activity_id):
             logging.error(f"Failed to prepare VM for activity {activity_id}")
+            self.clear_all(subscription_id, agreement_id, allocation_id)
             return
 
         # execute activity in a loop till lasting time is over
@@ -95,13 +122,5 @@ class YagnaRequestor(YagnaHttpUser):
                         break
             time.sleep(0.5)
 
-        # TODO clear allocation
-        if allocation_id:
-            #if not self.clear_allocation(allocation_id):
-                #logging.error(f"Failed to clear allocation {allocation_id}")
-            logging.info(f"Allocation {allocation_id} cleared")
-        
-        # terminate agreement
-        if not self.terminate_agreement(agreement_id):
-            logging.error(f"Failed to terminate agreement {agreement_id}")
-        logging.info(f"Agreement {agreement_id} terminated")
+        # clear all
+        self.clear_all(subscription_id, agreement_id, allocation_id)

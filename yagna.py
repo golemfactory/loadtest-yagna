@@ -35,12 +35,13 @@ class YagnaHttpUser(FastHttpUser):
                     continue
                 last_proposals = response.json()
             logging.debug(f"Found {len(last_proposals)} proposals")
+            logging.debug(f"Proposals: {last_proposals}")
             if last_proposals:
                 proposals.extend([ProposalEvent(**p) for p in last_proposals])
             else:
                 break
         proposals = [p for p in proposals if p.event_type == "ProposalEvent" and p.proposal.state == state]
-        logging.debug(f"Found {len(proposals)} proposals: {proposals}")
+        logging.info(f"Filtered {len(proposals)}")
         
         return proposals
 
@@ -69,6 +70,18 @@ class YagnaHttpUser(FastHttpUser):
             
             subscription_id: str = str(response.js)
             return subscription_id
+
+    def delete_demand(self, subscription_id: str | None = None):
+        if not subscription_id:
+            return False
+        response = self.client.delete(f"/market-api/v1/demands/{subscription_id}", headers={
+            "Authorization": f"Bearer {self.token}"
+        }, name="/market-api/v1/demands/{subscription_id}")
+        if not response.ok:
+            logging.error(f"Failed to delete demand {subscription_id}: {response.content}")
+            return False
+        logging.info(f"Demand {subscription_id} deleted")
+        return True
 
     def arrange_agreement(self, proposals: list[ProposalEvent], expiration: int):
         for proposal in proposals:
@@ -111,20 +124,25 @@ class YagnaHttpUser(FastHttpUser):
                     logging.error(f"Failed to wait for agreement {agreement_id}")
                     continue
 
-                logging.info(f"Agreement approved for proposal {proposal.proposal.proposal_id}")
+                logging.info(f"Agreement approved for proposal {proposal.proposal.proposal_id}, provider: {proposal.proposal.provider_id}, agreement: {agreement_id}")
 
                 return agreement_id
 
-    def terminate_agreement(self, agreement_id: str):
+    def terminate_agreement(self, agreement_id: str | None = None):
+        if not agreement_id:
+            return False
         response = self.client.post(f"/market-api/v1/agreements/{agreement_id}/terminate", headers={
             "Authorization": f"Bearer {self.token}"
         }, json={"message": "Finished task"}, name="/market-api/v1/agreements/{agreement_id}/terminate")
         if not response.ok:
             logging.error(f"Failed to terminate agreement {agreement_id}: {response.content}")
             return False
+        logging.info(f"Agreement {agreement_id} terminated")
         return True
 
-    def create_activity(self, agreement_id: str):
+    def create_activity(self, agreement_id: str | None = None):
+        if not agreement_id:
+            return None
         response = self.client.post(f"/activity-api/v1/activity?timeout=10", headers={
             "Authorization": f"Bearer {self.token}",
         }, json={"agreementId": agreement_id})
@@ -263,4 +281,20 @@ class YagnaHttpUser(FastHttpUser):
                 return None
             logging.info(f"Allocation created: {response.js}")
             return response.js["allocationId"]
-    
+        
+    def clear_allocation(self, allocation_id: str | None = None):
+        if not allocation_id:
+            return False
+        response = self.client.delete(f"/payment-api/v1/allocations/{allocation_id}", headers={
+            "Authorization": f"Bearer {self.token}"
+        }, name="/payment-api/v1/allocations/{allocation_id}")
+        if not response.ok:
+            logging.error(f"Failed to clear allocation {allocation_id}: {response.content}")
+            return False
+        logging.info(f"Allocation {allocation_id} cleared")
+        return True
+
+    def clear_all(self, subscription_id: str | None = None, agreement_id: str | None = None, allocation_id: str | None = None):
+        self.delete_demand(subscription_id)
+        self.terminate_agreement(agreement_id)
+        self.clear_allocation(allocation_id)
