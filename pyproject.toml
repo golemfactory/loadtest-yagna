@@ -10,6 +10,7 @@ python = "^3.11"
 locust = "^2.37.13"
 pydantic = "^2.11.7"
 requests = "^2.32.4"
+prometheus-client = "^0.22.1"
 python-dotenv = "^1.1.1"
 
 

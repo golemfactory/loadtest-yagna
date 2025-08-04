@@ -8,12 +8,17 @@ from locust import FastHttpUser
 
 from model import ProposalEvent, Demand, Profile
 from utils import get_formatted_timestamp
+from metrics import Metrics
 
 dotenv.load_dotenv()
 
 class YagnaHttpUser(FastHttpUser):
     abstract = True
     token = os.getenv("YAGNA_TOKEN")
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.metrics = Metrics()  # Create Metrics instance
 
     def get_profile(self):
         with self.rest("GET", "/me", headers={
@@ -69,6 +74,8 @@ class YagnaHttpUser(FastHttpUser):
                 raise Exception(f"Failed to send demand: {response.content}, status code: {response.status_code}")
             
             subscription_id: str = str(response.js)
+            self.metrics.record_demand_sent()
+            
             return subscription_id
 
     def delete_demand(self, subscription_id: str | None = None):

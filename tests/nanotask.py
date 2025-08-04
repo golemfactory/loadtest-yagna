@@ -46,6 +46,7 @@ class YagnaRequestor(YagnaHttpUser):
     def run_test_flow(self):
         # get profile
         profile = self.get_profile()
+        self.metrics.initialize(instance_id=profile.identity)
 
         # create allocation
         allocation_id = self.create_allocation(
