@@ -98,6 +98,9 @@ class YagnaHttpUser(FastHttpUser):
 
     def arrange_agreement(self, proposals: list[ProposalEvent], expiration: int):
         for proposal in proposals:
+            # Record agreement being proposed
+            self.metrics.record_agreement_proposed()
+            
             # send agreement
             agreement = {
                 "proposalId": proposal.proposal.proposal_id,
@@ -138,6 +141,9 @@ class YagnaHttpUser(FastHttpUser):
                     continue
 
                 logging.info(f"Agreement approved for proposal {proposal.proposal.proposal_id}, provider: {proposal.proposal.provider_id}, agreement: {agreement_id}")
+                
+                # Record agreement successfully created
+                self.metrics.record_agreement_created()
 
                 return agreement_id
 
@@ -151,6 +157,9 @@ class YagnaHttpUser(FastHttpUser):
             logging.error(f"Failed to terminate agreement {agreement_id}: {response.content}")
             return False
         logging.info(f"Agreement {agreement_id} terminated")
+        
+        # Record agreement terminated
+        self.metrics.record_agreement_terminated()
         return True
 
     def create_activity(self, agreement_id: str | None = None):

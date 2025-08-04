@@ -77,6 +77,25 @@ class Metrics:
             ['state'],
             registry=self.registry
         )
+        
+        # Agreement metrics
+        self.agreements_proposed = Counter(
+            'loadtest_agreements_proposed',
+            'Total number of agreements proposed',
+            registry=self.registry
+        )
+        
+        self.agreements_created = Counter(
+            'loadtest_agreements_created',
+            'Total number of agreements successfully created',
+            registry=self.registry
+        )
+        
+        self.agreements_terminated = Counter(
+            'loadtest_agreements_terminated',
+            'Total number of agreements terminated',
+            registry=self.registry
+        )
     
     def _start_push_task(self):
         """Start the background task for periodic metric pushing"""
@@ -130,6 +149,18 @@ class Metrics:
                     # Record rejection with reason
                     reason = proposal.proposal.reason if hasattr(proposal.proposal, 'reason') else "unknown"
                     self.record_proposal_rejection(reason)
+    
+    def record_agreement_proposed(self):
+        """Record an agreement being proposed"""
+        self.agreements_proposed.inc()
+    
+    def record_agreement_created(self):
+        """Record an agreement being successfully created"""
+        self.agreements_created.inc()
+    
+    def record_agreement_terminated(self):
+        """Record an agreement being terminated"""
+        self.agreements_terminated.inc()
     
     def push_metrics(self, grouping_key: dict = None):
         """
