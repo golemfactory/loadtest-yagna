@@ -61,6 +61,22 @@ class Metrics:
             'Total number of demands sent',
             registry=self.registry
         )
+        
+        # Rejection metrics
+        self.proposals_rejected = Counter(
+            'loadtest_proposals_rejected',
+            'Total number of proposals rejected aggregated by Reason',
+            ['reason'],
+            registry=self.registry
+        )
+        
+        # Proposal state metrics
+        self.proposals_by_state = Counter(
+            'loadtest_proposals_by_state',
+            'Total number of proposals by state',
+            ['state'],
+            registry=self.registry
+        )
     
     def _start_push_task(self):
         """Start the background task for periodic metric pushing"""
@@ -91,6 +107,30 @@ class Metrics:
         """Record a demand sent"""
         self.demands_sent.inc()
     
+    def record_proposal_rejection(self, reason: str):
+        """Record a proposal rejection with reason"""
+        self.proposals_rejected.labels(reason=reason).inc()
+    
+    def record_proposals_by_state(self, proposals: list):
+        """Record the number of proposals by their individual states"""
+        state_counts = {}
+        for proposal in proposals:
+            if hasattr(proposal, 'proposal') and hasattr(proposal.proposal, 'state'):
+                state = proposal.proposal.state
+                state_counts[state] = state_counts.get(state, 0) + 1
+        
+        for state, count in state_counts.items():
+            self.proposals_by_state.labels(state=state).inc(count)
+    
+    def report_proposal_rejection(self, proposals: list):
+        """Report proposal rejections from a list of proposals"""
+        for proposal in proposals:
+            if hasattr(proposal, 'event_type') and proposal.event_type == "ProposalEvent":
+                if hasattr(proposal, 'proposal') and hasattr(proposal.proposal, 'state') and proposal.proposal.state == "Rejected":
+                    # Record rejection with reason
+                    reason = proposal.proposal.reason if hasattr(proposal.proposal, 'reason') else "unknown"
+                    self.record_proposal_rejection(reason)
+    
     def push_metrics(self, grouping_key: dict = None):
         """
         Push metrics to Prometheus Push Gateway
@@ -104,6 +144,7 @@ class Metrics:
             
             # Set default grouping key with instance and hostname
             default_grouping_key = {
+                "job": f"{self.job_name}",
                 "instance": f"{self.instance_id}",
                 "hostname": f"locust-{self.instance_id}"
             }

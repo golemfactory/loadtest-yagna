@@ -45,10 +45,16 @@ class YagnaHttpUser(FastHttpUser):
                 proposals.extend([ProposalEvent(**p) for p in last_proposals])
             else:
                 break
+        
+        self.metrics.report_proposal_rejection(proposals)
+        self.metrics.record_proposals_by_state(proposals)
+        
         proposals = [p for p in proposals if p.event_type == "ProposalEvent" and p.proposal.state == state]
         logging.info(f"Filtered {len(proposals)}")
         
         return proposals
+
+
 
     def send_counter_offers(self, subscription_id: str, demand: Demand, proposals: list[ProposalEvent]):
         for proposal in proposals:
