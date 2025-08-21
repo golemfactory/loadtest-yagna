@@ -125,4 +125,5 @@ class YagnaRequestor(YagnaHttpUser):
             time.sleep(0.5)
 
         # clear all
+        self.metrics.record_task_metrics(self.lasting, time.time() - start_time)
         self.clear_all(subscription_id, agreement_id, allocation_id)

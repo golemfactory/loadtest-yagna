@@ -103,6 +103,20 @@ class Metrics:
             'Current number of active tasks',
             registry=self.registry
         )
+        
+        self.task_computation_time = Histogram(
+            'loadtest_task_computation_time_seconds',
+            'Time taken to compute tasks in seconds',
+            buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 25.0, 50.0, 100.0],
+            registry=self.registry
+        )
+        
+        self.running_time_percentage = Histogram(
+            'loadtest_running_time_percentage',
+            'Percentage of maximum running time actually used (0-100)',
+            buckets=[10, 25, 50, 75, 90, 95, 100],
+            registry=self.registry
+        )
     
     def _start_push_task(self):
         """Start the background task for periodic metric pushing"""
@@ -176,6 +190,15 @@ class Metrics:
     def decrement_task_count(self):
         """Decrement the task count gauge"""
         self.task_count.dec()
+    
+    def record_task_metrics(self, expected_seconds: float, actual_seconds: float):
+        """Record both task computation time and running time percentage"""
+        if expected_seconds > 0:
+            # Record task computation time
+            self.task_computation_time.observe(actual_seconds)
+            # Record running time percentage
+            percentage_used = (actual_seconds / expected_seconds) * 100
+            self.running_time_percentage.observe(percentage_used)
     
     def push_metrics(self, grouping_key: dict = None):
         """
