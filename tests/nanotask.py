@@ -87,6 +87,7 @@ class YagnaRequestor(YagnaHttpUser):
             logging.error("Failed to arrange agreement")
             self.clear_all(subscription_id, agreement_id, allocation_id)
             return
+        self.metrics.increment_task_count()
         logging.info(f"Arranged agreement id: {agreement_id}")
 
         # create activity

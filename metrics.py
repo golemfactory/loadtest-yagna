@@ -96,6 +96,13 @@ class Metrics:
             'Total number of agreements terminated',
             registry=self.registry
         )
+        
+        # Task metrics
+        self.task_count = Gauge(
+            'loadtest_task_count',
+            'Current number of active tasks',
+            registry=self.registry
+        )
     
     def _start_push_task(self):
         """Start the background task for periodic metric pushing"""
@@ -161,6 +168,14 @@ class Metrics:
     def record_agreement_terminated(self):
         """Record an agreement being terminated"""
         self.agreements_terminated.inc()
+    
+    def increment_task_count(self):
+        """Increment the task count gauge"""
+        self.task_count.inc()
+    
+    def decrement_task_count(self):
+        """Decrement the task count gauge"""
+        self.task_count.dec()
     
     def push_metrics(self, grouping_key: dict = None):
         """

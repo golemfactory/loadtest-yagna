@@ -317,6 +317,8 @@ class YagnaHttpUser(FastHttpUser):
         return True
 
     def clear_all(self, subscription_id: str | None = None, agreement_id: str | None = None, allocation_id: str | None = None):
+        self.metrics.decrement_task_count()
+        
         self.delete_demand(subscription_id)
         self.terminate_agreement(agreement_id)
         self.clear_allocation(allocation_id)
