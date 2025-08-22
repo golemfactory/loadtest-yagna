@@ -86,6 +86,7 @@ class Metrics:
         self.demands_sent = Counter(
             'loadtest_demands_sent',
             'Total number of demands sent',
+            ['userId'],
             registry=self.registry
         )
         
@@ -93,7 +94,7 @@ class Metrics:
         self.proposals_rejected = Counter(
             'loadtest_proposals_rejected',
             'Total number of proposals rejected aggregated by Reason',
-            ['reason'],
+            ['reason', 'userId'],
             registry=self.registry
         )
         
@@ -101,7 +102,7 @@ class Metrics:
         self.proposals_by_state = Counter(
             'loadtest_proposals_by_state',
             'Total number of proposals by state',
-            ['state'],
+            ['state', 'userId'],
             registry=self.registry
         )
         
@@ -109,18 +110,21 @@ class Metrics:
         self.agreements_proposed = Counter(
             'loadtest_agreements_proposed',
             'Total number of agreements proposed',
+            ['userId'],
             registry=self.registry
         )
         
         self.agreements_created = Counter(
             'loadtest_agreements_created',
             'Total number of agreements successfully created',
+            ['userId'],
             registry=self.registry
         )
         
         self.agreements_terminated = Counter(
             'loadtest_agreements_terminated',
             'Total number of agreements terminated',
+            ['userId'],
             registry=self.registry
         )
         
@@ -135,6 +139,7 @@ class Metrics:
         self.task_computation_time = Histogram(
             'loadtest_task_computation_time_seconds',
             'Time taken to compute tasks in seconds',
+            ['userId'],
             buckets=[0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 25.0, 50.0, 100.0],
             registry=self.registry
         )
@@ -142,6 +147,7 @@ class Metrics:
         self.running_time_percentage = Histogram(
             'loadtest_running_time_percentage',
             'Percentage of maximum running time actually used (0-100)',
+            ['userId'],
             buckets=[10, 25, 50, 75, 90, 95, 100],
             registry=self.registry
         )
@@ -171,15 +177,15 @@ class Metrics:
             self._push_thread.join(timeout=5)
             logging.info("Stopped background metrics push task")
     
-    def record_demand_sent(self):
+    def record_demand_sent(self, userId: str):
         """Record a demand sent"""
-        self.demands_sent.inc()
+        self.demands_sent.labels(userId=userId).inc()
     
-    def record_proposal_rejection(self, reason: str):
+    def record_proposal_rejection(self, reason: str, userId: str):
         """Record a proposal rejection with reason"""
-        self.proposals_rejected.labels(reason=reason).inc()
+        self.proposals_rejected.labels(reason=reason, userId=userId).inc()
     
-    def record_proposals_by_state(self, proposals: list):
+    def record_proposals_by_state(self, proposals: list, userId: str):
         """Record the number of proposals by their individual states"""
         state_counts = {}
         for proposal in proposals:
@@ -188,28 +194,28 @@ class Metrics:
                 state_counts[state] = state_counts.get(state, 0) + 1
         
         for state, count in state_counts.items():
-            self.proposals_by_state.labels(state=state).inc(count)
+            self.proposals_by_state.labels(state=state, userId=userId).inc(count)
     
-    def report_proposal_rejection(self, proposals: list):
+    def report_proposal_rejection(self, proposals: list, userId: str):
         """Report proposal rejections from a list of proposals"""
         for proposal in proposals:
             if hasattr(proposal, 'event_type') and proposal.event_type == "ProposalEvent":
                 if hasattr(proposal, 'proposal') and hasattr(proposal.proposal, 'state') and proposal.proposal.state == "Rejected":
                     # Record rejection with reason
                     reason = proposal.proposal.reason if hasattr(proposal.proposal, 'reason') else "unknown"
-                    self.record_proposal_rejection(reason)
+                    self.record_proposal_rejection(reason, userId)
     
-    def record_agreement_proposed(self):
+    def record_agreement_proposed(self, userId: str):
         """Record an agreement being proposed"""
-        self.agreements_proposed.inc()
+        self.agreements_proposed.labels(userId=userId).inc()
     
-    def record_agreement_created(self):
+    def record_agreement_created(self, userId: str):
         """Record an agreement being successfully created"""
-        self.agreements_created.inc()
+        self.agreements_created.labels(userId=userId).inc()
     
-    def record_agreement_terminated(self):
+    def record_agreement_terminated(self, userId: str):
         """Record an agreement being terminated"""
-        self.agreements_terminated.inc()
+        self.agreements_terminated.labels(userId=userId).inc()
     
     def increment_task_count(self):
         """Increment the task count gauge"""
@@ -219,14 +225,14 @@ class Metrics:
         """Decrement the task count gauge"""
         self.task_count.dec()
     
-    def record_task_metrics(self, expected_seconds: float, actual_seconds: float):
+    def record_task_metrics(self, expected_seconds: float, actual_seconds: float, userId: str):
         """Record both task computation time and running time percentage"""
         if expected_seconds > 0:
             # Record task computation time
-            self.task_computation_time.observe(actual_seconds)
+            self.task_computation_time.labels(userId=userId).observe(actual_seconds)
             # Record running time percentage
             percentage_used = (actual_seconds / expected_seconds) * 100
-            self.running_time_percentage.observe(percentage_used)
+            self.running_time_percentage.labels(userId=userId).observe(percentage_used)
     
     def push_metrics(self, grouping_key: dict = None):
         """

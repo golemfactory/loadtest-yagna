@@ -2,6 +2,7 @@ import os
 from datetime import datetime, timezone
 import logging
 import time
+import uuid
 
 import dotenv
 from locust import FastHttpUser
@@ -18,7 +19,10 @@ class YagnaHttpUser(FastHttpUser):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.userId = str(uuid.uuid4())
         self.metrics = get_metrics()  # Get global metrics instance
+        
+        logging.info(f"Initialized User ID: {self.userId}")
 
     def get_profile(self):
         with self.rest("GET", "/me", headers={
@@ -46,8 +50,8 @@ class YagnaHttpUser(FastHttpUser):
             else:
                 break
         
-        self.metrics.report_proposal_rejection(proposals)
-        self.metrics.record_proposals_by_state(proposals)
+        self.metrics.report_proposal_rejection(proposals, self.userId)
+        self.metrics.record_proposals_by_state(proposals, self.userId)
         
         proposals = [p for p in proposals if p.event_type == "ProposalEvent" and p.proposal.state == state]
         logging.info(f"Filtered {len(proposals)}")
@@ -80,7 +84,7 @@ class YagnaHttpUser(FastHttpUser):
                 raise Exception(f"Failed to send demand: {response.content}, status code: {response.status_code}")
             
             subscription_id: str = str(response.js)
-            self.metrics.record_demand_sent()
+            self.metrics.record_demand_sent(self.userId)
             
             return subscription_id
 
@@ -99,7 +103,7 @@ class YagnaHttpUser(FastHttpUser):
     def arrange_agreement(self, proposals: list[ProposalEvent], expiration: int):
         for proposal in proposals:
             # Record agreement being proposed
-            self.metrics.record_agreement_proposed()
+            self.metrics.record_agreement_proposed(self.userId)
             
             # send agreement
             agreement = {
@@ -143,7 +147,7 @@ class YagnaHttpUser(FastHttpUser):
                 logging.info(f"Agreement approved for proposal {proposal.proposal.proposal_id}, provider: {proposal.proposal.provider_id}, agreement: {agreement_id}")
                 
                 # Record agreement successfully created
-                self.metrics.record_agreement_created()
+                self.metrics.record_agreement_created(self.userId)
 
                 return agreement_id
 
@@ -159,7 +163,7 @@ class YagnaHttpUser(FastHttpUser):
         logging.info(f"Agreement {agreement_id} terminated")
         
         # Record agreement terminated
-        self.metrics.record_agreement_terminated()
+        self.metrics.record_agreement_terminated(self.userId)
         return True
 
     def create_activity(self, agreement_id: str | None = None):

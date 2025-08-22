@@ -19,3 +19,4 @@ venv/
 result_*.txt
 run_*/
 run_all_*/
+load_test.log
