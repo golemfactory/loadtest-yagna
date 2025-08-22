@@ -5,10 +5,16 @@ import math
 import logging
 import time
 
-from locust import task, between
+from locust import task, between, events
 
 from yagna import YagnaHttpUser
 from utils import prepare_demand, get_formatted_timestamp, calculate_budget
+from metrics import reset_global_metrics
+
+
+@events.test_start.add_listener
+def on_test_start(environment, **kwargs):
+    reset_global_metrics()
 
 class YagnaRequestor(YagnaHttpUser):
     wait_time = between(10, 30)

@@ -8,7 +8,7 @@ from locust import FastHttpUser
 
 from model import ProposalEvent, Demand, Profile
 from utils import get_formatted_timestamp
-from metrics import Metrics
+from metrics import get_metrics
 
 dotenv.load_dotenv()
 
@@ -18,7 +18,7 @@ class YagnaHttpUser(FastHttpUser):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.metrics = Metrics()  # Create Metrics instance
+        self.metrics = get_metrics()  # Get global metrics instance
 
     def get_profile(self):
         with self.rest("GET", "/me", headers={
@@ -318,6 +318,7 @@ class YagnaHttpUser(FastHttpUser):
 
     def clear_all(self, subscription_id: str | None = None, agreement_id: str | None = None, allocation_id: str | None = None):
         self.metrics.decrement_task_count()
+        logging.info(f"Cleanup for agreement {agreement_id}")
         
         self.delete_demand(subscription_id)
         self.terminate_agreement(agreement_id)

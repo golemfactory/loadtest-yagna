@@ -9,21 +9,43 @@ PUSHGATEWAY_HOST = os.getenv("PUSHGATEWAY_HOST", "metrics.golem.network")
 PUSHGATEWAY_PORT = os.getenv("PUSHGATEWAY_PORT", "9092")
 PUSHGATEWAY_BASE_URL = f"https://{PUSHGATEWAY_HOST}:{PUSHGATEWAY_PORT}"
 JOB_NAME = os.getenv("JOB_NAME", "golembase-AR")
-INSTANCE_ID = os.getenv("INSTANCE_ID", "0xf98bb0842a7e744beedd291c98e7cd2c9b27f300")
+INSTANCE_ID = os.getenv("INSTANCE_ID", None)
+DEFAULT_PUSH_INTERVAL = 5  # Default interval in seconds for pushing metrics
 
+# Global metrics instance
+_metrics_instance = None
+
+
+def get_metrics():
+    """Get the global metrics instance"""
+    global _metrics_instance
+    if _metrics_instance is None:
+        _metrics_instance = Metrics()
+        logging.info("Created new metrics instance")
+    return _metrics_instance
+
+
+def reset_global_metrics():
+    """Reset the global metrics instance - stops current instance and creates a new one"""
+    global _metrics_instance
+    if _metrics_instance:
+        _metrics_instance.stop_push_task()
+        logging.info("Stopped previous metrics instance")
+    _metrics_instance = get_metrics()  # Create new instance
+    
 
 class Metrics:
     """
     A class to handle Prometheus metrics collection and pushing to push gateway
     """
     
-    def __init__(self, instance_id: str = None, push_interval: int = 30):
+    def __init__(self, instance_id: str = None, push_interval: int = DEFAULT_PUSH_INTERVAL):
         """
         Initialize the Metrics class
         
         Args:
             instance_id: Instance ID for metrics (defaults to INSTANCE_ID constant)
-            push_interval: Interval in seconds for pushing metrics to gateway (defaults to 30)
+            push_interval: Interval in seconds for pushing metrics to gateway (defaults to 5)
         """
         self.job_name = JOB_NAME
         self.instance_id = instance_id or INSTANCE_ID
@@ -31,26 +53,31 @@ class Metrics:
         self.registry = CollectorRegistry()
         self._stop_event = threading.Event()
         self._push_thread = None
+        self._initialized = False
 
         disable_created_metrics()
         
         # Initialize common metrics
         self._init_metrics()
     
-    def initialize(self, instance_id: str = None, push_interval: int = 30):
+    def initialize(self, instance_id: str = None, push_interval: int = DEFAULT_PUSH_INTERVAL):
         """
-        Initialize the Metrics instance with new parameters
+        Initialize the Metrics instance with new parameters and start background threads.
+        This should only be called once per application run.
         
         Args:
             instance_id: Instance ID for metrics (defaults to INSTANCE_ID constant)
-            push_interval: Interval in seconds for pushing metrics to gateway (defaults to 30)
+            push_interval: Interval in seconds for pushing metrics to gateway (defaults to 5)
         """
         self.instance_id = instance_id or INSTANCE_ID
         self.push_interval = push_interval
+
+        if self._initialized:
+            return
         
-        # Restart the background task with new interval
-        self.stop_push_task()
+        # Start the background task
         self._start_push_task()
+        self._initialized = True
     
     def _init_metrics(self):
         """Initialize common metrics for Yagna load testing"""
@@ -103,6 +130,7 @@ class Metrics:
             'Current number of active tasks',
             registry=self.registry
         )
+        self.task_count.set(0)
         
         self.task_computation_time = Histogram(
             'loadtest_task_computation_time_seconds',
@@ -207,6 +235,11 @@ class Metrics:
         Args:
             grouping_key: Dictionary of labels for grouping metrics
         """
+        # Don't push metrics if instance_id is not set
+        if self.instance_id is None:
+            logging.debug("Skipping metrics push - instance_id not set")
+            return
+            
         try:
             # Use push gateway URL with job name in path
             push_url = f"{PUSHGATEWAY_BASE_URL}"
