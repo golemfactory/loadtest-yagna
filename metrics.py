@@ -2,6 +2,7 @@ import os
 import logging
 import threading
 import time
+from model import ProposalEvent
 from prometheus_client import CollectorRegistry, push_to_gateway, Counter, Gauge, Histogram, Summary, Enum, disable_created_metrics
 
 # Prometheus Push Gateway constants
@@ -202,7 +203,7 @@ class Metrics:
         """Record a proposal rejection with reason"""
         self.proposals_rejected.labels(reason=reason, userId=userId).inc()
     
-    def record_proposals_by_state(self, proposals: list, userId: str):
+    def record_proposals_by_state(self, proposals: list[ProposalEvent], userId: str):
         """Record the number of proposals by their individual states"""
         state_counts = {}
         for proposal in proposals:
@@ -213,14 +214,14 @@ class Metrics:
         for state, count in state_counts.items():
             self.proposals_by_state.labels(state=state, userId=userId).inc(count)
     
-    def report_proposal_rejection(self, proposals: list, userId: str):
+    def report_proposal_rejection(self, proposals: list[ProposalEvent], userId: str):
         """Report proposal rejections from a list of proposals"""
         for proposal in proposals:
-            if hasattr(proposal, 'event_type') and proposal.event_type == "ProposalEvent":
-                if hasattr(proposal, 'proposal') and hasattr(proposal.proposal, 'state') and proposal.proposal.state == "Rejected":
-                    # Record rejection with reason
-                    reason = proposal.proposal.reason if hasattr(proposal.proposal, 'reason') else "unknown"
-                    self.record_proposal_rejection(reason, userId)
+            if hasattr(proposal, 'event_type') and proposal.event_type == "ProposalRejectedEvent":
+                # Reason message is to complicated to be used as label. For now we need to simplify.
+                #reason = proposal.reason['message'] if hasattr(proposal, 'reason') else "Unknown"
+                reason = "Unknown"
+                self.record_proposal_rejection(reason, userId)
     
     def record_agreement_proposed(self, userId: str):
         """Record an agreement being proposed"""

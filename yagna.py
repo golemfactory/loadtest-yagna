@@ -21,8 +21,6 @@ class YagnaHttpUser(FastHttpUser):
         super().__init__(*args, **kwargs)
         self.userId = None
         self.metrics = get_metrics()  # Get global metrics instance
-        
-        logging.info(f"Initialized User ID: {self.userId}")
 
     def get_profile(self):
         with self.rest("GET", "/me", headers={
@@ -54,10 +52,9 @@ class YagnaHttpUser(FastHttpUser):
         self.metrics.record_proposals_by_state(proposals, self.userId)
         
         proposals = [p for p in proposals if p.event_type == "ProposalEvent" and p.proposal.state == state]
-        logging.info(f"Filtered {len(proposals)}")
+        logging.info(f"Filtered {len(proposals)} proposals with state '{state}'")
         
         return proposals
-
 
 
     def send_counter_offers(self, subscription_id: str, demand: Demand, proposals: list[ProposalEvent]):
@@ -156,7 +153,7 @@ class YagnaHttpUser(FastHttpUser):
             return False
         response = self.client.post(f"/market-api/v1/agreements/{agreement_id}/terminate", headers={
             "Authorization": f"Bearer {self.token}"
-        }, json={"message": f"Finished task with result: {reason}", "reason": reason}, name="/market-api/v1/agreements/{agreement_id}/terminate")
+        }, json={"message": f"Finished task with result: {reason}", "golem.requestor.code": reason}, name="/market-api/v1/agreements/{agreement_id}/terminate")
         if not response.ok:
             logging.error(f"Failed to terminate agreement {agreement_id}: {response.content}")
             return False
