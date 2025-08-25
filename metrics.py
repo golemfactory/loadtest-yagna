@@ -160,6 +160,14 @@ class Metrics:
             registry=self.registry
         )
         self.loadtest_running.state('stopped')  # Start as stopped
+        
+        # Current user count metric
+        self.current_user_count = Gauge(
+            'loadtest_current_user_count',
+            'Current number of active users in the load test',
+            registry=self.registry
+        )
+        self.current_user_count.set(0)  # Start with 0 users
     
     def _start_push_task(self):
         """Start the background task for periodic metric pushing"""
@@ -290,4 +298,10 @@ class Metrics:
             logging.info(f"Load test status set to: {status}")
         else:
             logging.warning(f"Invalid load test status: {status}. Valid states: stopped, running")
-        return self.registry 
+        return self.registry
+    
+    def update_user_count(self, environment):
+        """Update the current user count from Locust environment"""
+        user_count = environment.runner.user_count
+        self.current_user_count.set(user_count)
+        

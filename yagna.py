@@ -151,12 +151,12 @@ class YagnaHttpUser(FastHttpUser):
 
                 return agreement_id
 
-    def terminate_agreement(self, agreement_id: str | None = None):
+    def terminate_agreement(self, agreement_id: str | None = None, reason: str = "NotSpecified"):
         if not agreement_id:
             return False
         response = self.client.post(f"/market-api/v1/agreements/{agreement_id}/terminate", headers={
             "Authorization": f"Bearer {self.token}"
-        }, json={"message": "Finished task"}, name="/market-api/v1/agreements/{agreement_id}/terminate")
+        }, json={"message": f"Finished task with result: {reason}", "reason": reason}, name="/market-api/v1/agreements/{agreement_id}/terminate")
         if not response.ok:
             logging.error(f"Failed to terminate agreement {agreement_id}: {response.content}")
             return False
@@ -321,9 +321,9 @@ class YagnaHttpUser(FastHttpUser):
         logging.info(f"Allocation {allocation_id} cleared")
         return True
 
-    def clear_all(self, subscription_id: str | None = None, agreement_id: str | None = None, allocation_id: str | None = None):
+    def clear_all(self, subscription_id: str | None = None, agreement_id: str | None = None, allocation_id: str | None = None, reason: str = "NotSpecified"):
         logging.info(f"Cleanup for agreement {agreement_id}")
         
         self.delete_demand(subscription_id)
-        self.terminate_agreement(agreement_id)
+        self.terminate_agreement(agreement_id, reason)
         self.clear_allocation(allocation_id)
