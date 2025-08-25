@@ -2,7 +2,7 @@ import os
 import logging
 import threading
 import time
-from prometheus_client import CollectorRegistry, push_to_gateway, Counter, Gauge, Histogram, Summary, disable_created_metrics
+from prometheus_client import CollectorRegistry, push_to_gateway, Counter, Gauge, Histogram, Summary, Enum, disable_created_metrics
 
 # Prometheus Push Gateway constants
 PUSHGATEWAY_HOST = os.getenv("PUSHGATEWAY_HOST", "metrics.golem.network")
@@ -151,6 +151,15 @@ class Metrics:
             buckets=[10, 25, 50, 75, 90, 95, 100],
             registry=self.registry
         )
+        
+        # Load test status metric
+        self.loadtest_running = Enum(
+            'loadtest_status',
+            'Current status of the load test',
+            states=['stopped', 'running'],
+            registry=self.registry
+        )
+        self.loadtest_running.state('stopped')  # Start as stopped
     
     def _start_push_task(self):
         """Start the background task for periodic metric pushing"""
@@ -266,10 +275,19 @@ class Metrics:
                 registry=self.registry,
                 grouping_key=final_grouping_key
             )
-            logging.info(f"Metrics pushed to {push_url} for job: {self.job_name}")
+            logging.debug(f"Metrics pushed to {push_url} for job: {self.job_name}")
         except Exception as e:
             logging.error(f"Failed to push metrics to {push_url}: {e}")
     
     def get_registry(self):
         """Get the CollectorRegistry instance"""
+        return self.registry
+    
+    def set_loadtest_status(self, status: str):
+        """Set the load test status"""
+        if status in ['stopped', 'running']:
+            self.loadtest_running.state(status)
+            logging.info(f"Load test status set to: {status}")
+        else:
+            logging.warning(f"Invalid load test status: {status}. Valid states: stopped, running")
         return self.registry 

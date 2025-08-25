@@ -19,7 +19,7 @@ class YagnaHttpUser(FastHttpUser):
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.userId = str(uuid.uuid4())
+        self.userId = None
         self.metrics = get_metrics()  # Get global metrics instance
         
         logging.info(f"Initialized User ID: {self.userId}")
@@ -163,6 +163,7 @@ class YagnaHttpUser(FastHttpUser):
         logging.info(f"Agreement {agreement_id} terminated")
         
         # Record agreement terminated
+        self.metrics.decrement_task_count()
         self.metrics.record_agreement_terminated(self.userId)
         return True
 
@@ -321,7 +322,6 @@ class YagnaHttpUser(FastHttpUser):
         return True
 
     def clear_all(self, subscription_id: str | None = None, agreement_id: str | None = None, allocation_id: str | None = None):
-        self.metrics.decrement_task_count()
         logging.info(f"Cleanup for agreement {agreement_id}")
         
         self.delete_demand(subscription_id)

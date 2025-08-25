@@ -4,24 +4,33 @@ from datetime import datetime, timedelta
 import math
 import logging
 import time
+import uuid
 
 from locust import task, between, events
 
 from yagna import YagnaHttpUser
 from utils import prepare_demand, get_formatted_timestamp, calculate_budget
-from metrics import reset_global_metrics
+from metrics import get_metrics, reset_global_metrics
 
 
 @events.test_start.add_listener
 def on_test_start(environment, **kwargs):
     reset_global_metrics()
+    metrics = get_metrics()
+    metrics.set_loadtest_status('running')
+
+@events.test_stop.add_listener
+def on_test_stop(environment, **kwargs):
+    metrics = get_metrics()
+    if metrics:
+        metrics.set_loadtest_status('stopped')
 
 class YagnaRequestor(YagnaHttpUser):
     wait_time = between(10, 30)
     maxStartPrice = 0.5
     maxCpuPerHourPrice = 1
     maxEnvPerHourPrice = 0.5
-    lasting = float(os.getenv("RENT_TIME", 10 * 60))
+    lasting = float(os.getenv("RENT_TIME", 6 * 60))
     payment_platform = os.getenv("PAYMENT_PLATFORM", "erc20-polygon-glm")
     margin = float(os.getenv("MARGIN", 2 * 60))
 
@@ -50,6 +59,10 @@ class YagnaRequestor(YagnaHttpUser):
 
     @task
     def run_test_flow(self):
+        # Create new user ID for this task run
+        self.userId = str(uuid.uuid4())
+        logging.info(f"Starting new task with User ID: {self.userId}")
+        
         # get profile
         profile = self.get_profile()
         self.metrics.initialize(instance_id=profile.identity)
