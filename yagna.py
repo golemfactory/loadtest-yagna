@@ -247,7 +247,7 @@ class YagnaHttpUser(FastHttpUser):
                     raise Exception(f"Activity {activity_id} terminated")
                 if state[0] == "Ready" and output and output[0]["isBatchFinished"]:
                     break
-                break
+                
             time.sleep(1)
             if timeout and time.time() - start_time > timeout:
                 logging.error(f"Timeout while executing activity {activity_id}")
