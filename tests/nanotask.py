@@ -12,15 +12,23 @@ from yagna import YagnaHttpUser
 from utils import prepare_demand, get_formatted_timestamp, calculate_budget
 from metrics import get_metrics, reset_global_metrics
 
+# Global user counter for controlled delay distribution
+user_counter = 0
+
+def reset_user_counter():
+    global user_counter
+    user_counter = 0
 
 @events.test_start.add_listener
 def on_test_start(environment, **kwargs):
+    reset_user_counter()
     reset_global_metrics()
     metrics = get_metrics()
     metrics.set_loadtest_status('running')
 
 @events.test_stop.add_listener
 def on_test_stop(environment, **kwargs):
+    reset_user_counter()
     metrics = get_metrics()
     if metrics:
         metrics.set_loadtest_status('stopped')
@@ -33,6 +41,7 @@ class YagnaRequestor(YagnaHttpUser):
     lasting = float(os.getenv("RENT_TIME", 6 * 60))
     payment_platform = os.getenv("PAYMENT_PLATFORM", "erc20-polygon-glm")
     margin = float(os.getenv("MARGIN", 2 * 60))
+    user_delay = float(os.getenv("USER_DELAY", 5.0))  # Delay in seconds between user starts
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -57,9 +66,23 @@ class YagnaRequestor(YagnaHttpUser):
             "root": {"handlers": ["console", "file"], "level": "INFO"}
         })
 
+    def _delay_user_start(self):
+        """Add a calculated delay based on user counter to spread out user execution over time."""
+        global user_counter
+        if self.user_delay > 0:
+            # Calculate delay based on user counter
+            delay = user_counter * self.user_delay
+            user_counter += 1
+            logging.info(f"Delaying user start by {delay:.2f} seconds (user #{user_counter}) to spread execution")
+            time.sleep(delay)
+
     @task
     def run_test_flow(self):
         try:
+            # Add calculated delay to spread out user execution over time to avoid failures
+            # due to overloading yagna with requests.
+            self._delay_user_start()
+            
             # Create new user ID for this task run
             self.userId = str(uuid.uuid4())
             self.metrics.update_user_count(self.environment)
