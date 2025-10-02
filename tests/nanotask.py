@@ -38,7 +38,7 @@ class YagnaRequestor(YagnaHttpUser):
     maxStartPrice = 0.5
     maxCpuPerHourPrice = 1
     maxEnvPerHourPrice = 0.5
-    lasting = float(os.getenv("RENT_TIME", 6 * 60))
+    lasting = float(os.getenv("RENT_TIME", 15 * 60))
     payment_platform = os.getenv("PAYMENT_PLATFORM", "erc20-polygon-glm")
     margin = float(os.getenv("MARGIN", 2 * 60))
     user_delay = float(os.getenv("USER_DELAY", 5.0))  # Delay in seconds between user starts
