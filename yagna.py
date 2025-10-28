@@ -2,18 +2,25 @@ import os
 from datetime import datetime, timezone
 import logging
 import time
+import uuid
 
 import dotenv
 from locust import FastHttpUser
 
 from model import ProposalEvent, Demand, Profile
 from utils import get_formatted_timestamp
+from metrics import get_metrics
 
 dotenv.load_dotenv()
 
 class YagnaHttpUser(FastHttpUser):
     abstract = True
     token = os.getenv("YAGNA_TOKEN")
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.userId = None
+        self.metrics = get_metrics()  # Get global metrics instance
 
     def get_profile(self):
         with self.rest("GET", "/me", headers={
@@ -40,10 +47,15 @@ class YagnaHttpUser(FastHttpUser):
                 proposals.extend([ProposalEvent(**p) for p in last_proposals])
             else:
                 break
+        
+        self.metrics.report_proposal_rejection(proposals, self.userId)
+        self.metrics.record_proposals_by_state(proposals, self.userId)
+        
         proposals = [p for p in proposals if p.event_type == "ProposalEvent" and p.proposal.state == state]
-        logging.info(f"Filtered {len(proposals)}")
+        logging.info(f"Filtered {len(proposals)} proposals with state '{state}'")
         
         return proposals
+
 
     def send_counter_offers(self, subscription_id: str, demand: Demand, proposals: list[ProposalEvent]):
         for proposal in proposals:
@@ -69,6 +81,8 @@ class YagnaHttpUser(FastHttpUser):
                 raise Exception(f"Failed to send demand: {response.content}, status code: {response.status_code}")
             
             subscription_id: str = str(response.js)
+            self.metrics.record_demand_sent(self.userId)
+            
             return subscription_id
 
     def delete_demand(self, subscription_id: str | None = None):
@@ -85,6 +99,9 @@ class YagnaHttpUser(FastHttpUser):
 
     def arrange_agreement(self, proposals: list[ProposalEvent], expiration: int):
         for proposal in proposals:
+            # Record agreement being proposed
+            self.metrics.record_agreement_proposed(self.userId)
+            
             # send agreement
             agreement = {
                 "proposalId": proposal.proposal.proposal_id,
@@ -125,19 +142,26 @@ class YagnaHttpUser(FastHttpUser):
                     continue
 
                 logging.info(f"Agreement approved for proposal {proposal.proposal.proposal_id}, provider: {proposal.proposal.provider_id}, agreement: {agreement_id}")
+                
+                # Record agreement successfully created
+                self.metrics.record_agreement_created(self.userId)
 
                 return agreement_id
 
-    def terminate_agreement(self, agreement_id: str | None = None):
+    def terminate_agreement(self, agreement_id: str | None = None, reason: str = "NotSpecified"):
         if not agreement_id:
             return False
         response = self.client.post(f"/market-api/v1/agreements/{agreement_id}/terminate", headers={
             "Authorization": f"Bearer {self.token}"
-        }, json={"message": "Finished task"}, name="/market-api/v1/agreements/{agreement_id}/terminate")
+        }, json={"message": f"Finished task with result: {reason}", "golem.requestor.code": reason}, name="/market-api/v1/agreements/{agreement_id}/terminate")
         if not response.ok:
             logging.error(f"Failed to terminate agreement {agreement_id}: {response.content}")
             return False
         logging.info(f"Agreement {agreement_id} terminated")
+        
+        # Record agreement terminated
+        self.metrics.decrement_task_count()
+        self.metrics.record_agreement_terminated(self.userId)
         return True
 
     def create_activity(self, agreement_id: str | None = None):
@@ -223,7 +247,7 @@ class YagnaHttpUser(FastHttpUser):
                     raise Exception(f"Activity {activity_id} terminated")
                 if state[0] == "Ready" and output and output[0]["isBatchFinished"]:
                     break
-                break
+                
             time.sleep(1)
             if timeout and time.time() - start_time > timeout:
                 logging.error(f"Timeout while executing activity {activity_id}")
@@ -294,7 +318,9 @@ class YagnaHttpUser(FastHttpUser):
         logging.info(f"Allocation {allocation_id} cleared")
         return True
 
-    def clear_all(self, subscription_id: str | None = None, agreement_id: str | None = None, allocation_id: str | None = None):
+    def clear_all(self, subscription_id: str | None = None, agreement_id: str | None = None, allocation_id: str | None = None, reason: str = "NotSpecified"):
+        logging.info(f"Cleanup for agreement {agreement_id}")
+        
         self.delete_demand(subscription_id)
-        self.terminate_agreement(agreement_id)
+        self.terminate_agreement(agreement_id, reason)
         self.clear_allocation(allocation_id)

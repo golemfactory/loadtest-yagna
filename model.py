@@ -19,4 +19,6 @@ class Demand(BaseModel):
 class ProposalEvent(BaseModel):
     event_type: str = Field(default="", alias="eventType")
     event_date: str = Field(default="", alias="eventDate")
+    proposal_id: str = Field(default="", alias="proposalId")    
     proposal: Proposal = Field(default=Proposal())
+    reason: dict = Field(default_factory=dict)
