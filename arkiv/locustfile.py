@@ -53,7 +53,7 @@ def topup_local_account(account: LocalAccount, w3: Web3):
     logging.info(f"Transaction hash: {tx_hash}")
 
 
-gb_container = None
+arkiv_container = None
 @events.test_start.add_listener
 def on_test_start(environment, **kwargs):
     logging.info(f"A new test is starting with nr of users {environment.runner.target_user_count}")
@@ -61,19 +61,19 @@ def on_test_start(environment, **kwargs):
     id_iterator = (i+1 for i in range(environment.runner.target_user_count))
 
     if config.chain_env == "local" and config.image_to_run and not config.fresh_container_for_each_test:
-        global gb_container
-        gb_container = launch_image(config.image_to_run)
+        global arkiv_container
+        arkiv_container = launch_image(config.image_to_run)
         logging.info(f"A new test is starting and a new container is launched")
 
 @events.test_stop.add_listener
 def on_test_stop(environment, **kwargs):
     if config.chain_env == "local" and config.image_to_run and not config.fresh_container_for_each_test:
-        global gb_container
-        if gb_container:
-            gb_container.stop()
+        global arkiv_container
+        if arkiv_container:
+            arkiv_container.stop()
         logging.info(f"A new test is ending and the container is stopped")
 
-class GolemBaseUser(FastHttpUser):
+class ArkivUser(FastHttpUser):
     wait_time = between(3, 10)
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -113,23 +113,23 @@ class GolemBaseUser(FastHttpUser):
 
     @task
     def store_offer(self):
-        gb_container = None
+        arkiv_container = None
         try:
             if config.chain_env == "local" and config.image_to_run and config.fresh_container_for_each_test:
-                gb_container = launch_image(config.image_to_run)
+                arkiv_container = launch_image(config.image_to_run)
             
             account: LocalAccount = Account.from_mnemonic(config.mnemonic, account_path=f"m/44'/60'/0'/0/{self.id}")
             logging.info(f"Account: {account.address}")
             
-            logging.info(f"Connecting to Golem Base")
+            logging.info(f"Connecting to Arkiv")
             logging.info(f"Base URL: {self.client.base_url}")
             w3 = Web3(web3.HTTPProvider(endpoint_uri=self.client.base_url, session=self.client))
             
             if w3.is_connected():
-                logging.info("Connected to Golem Base")
+                logging.info("Connected to Arkiv")
             else:
-                logging.error("Not connected to Golem Base")
-                raise Exception("Not connected to Golem Base")
+                logging.error("Not connected to Arkiv")
+                raise Exception("Not connected to Arkiv")
 
             balance = w3.eth.get_balance(account.address)
             logging.info(f"Balance: {balance}")
@@ -199,8 +199,8 @@ class GolemBaseUser(FastHttpUser):
             logging.error(f"Error: {e}", exc_info=True)
             raise
         finally:
-            if gb_container:
-                gb_container.stop()
+            if arkiv_container:
+                arkiv_container.stop()
 
     @task
     def retrieve_offers(self):
