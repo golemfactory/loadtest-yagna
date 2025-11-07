@@ -128,7 +128,7 @@ class YagnaHttpUser(FastHttpUser):
                     "Authorization": f"Bearer {self.token}"
                 }, name="/market-api/v1/agreements/{agreement_id}/confirm")
                 if not response.ok:
-                    logging.error(f"Failed to confirm agreement {agreement_id}")
+                    logging.error(f"Failed to confirm agreement {agreement_id}: {response.content}")
                     continue
 
                 # get agreement events
@@ -138,7 +138,7 @@ class YagnaHttpUser(FastHttpUser):
                     "Authorization": f"Bearer {self.token}"
                 }, name="/market-api/v1/agreements/{agreement_id}/wait")
                 if not response.ok:
-                    logging.error(f"Failed to wait for agreement {agreement_id}")
+                    logging.error(f"Failed to wait for agreement {agreement_id}: {response.content}")
                     continue
 
                 logging.info(f"Agreement approved for proposal {proposal.proposal.proposal_id}, provider: {proposal.proposal.provider_id}, agreement: {agreement_id}")
@@ -171,7 +171,7 @@ class YagnaHttpUser(FastHttpUser):
             "Authorization": f"Bearer {self.token}",
         }, json={"agreementId": agreement_id})
         if not response.ok:
-            logging.error(f"Failed to create activity for agreement {agreement_id}: {response.json()}")
+            logging.error(f"Failed to create activity for agreement {agreement_id}: {response.content}")
             return None
         return response.json()["activityId"]
 
