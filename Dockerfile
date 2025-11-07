@@ -10,4 +10,4 @@ WORKDIR /app
 
 RUN poetry install
 
-CMD ["poetry", "run", "locust", "-f", "tests/nanotask.py"]
+CMD ["poetry", "run", "locust", "-f", "golem/nanotask.py"]
