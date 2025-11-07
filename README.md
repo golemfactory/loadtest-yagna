@@ -28,23 +28,23 @@ To set up the Locust master service on a machine using systemd:
 
 1. Copy the systemd service file to the systemd directory:
    ```bash
-   sudo cp golem/systemd/locust.service /etc/systemd/system/
+   sudo cp golem/systemd/locust-golem.service /etc/systemd/system/
    ```
 
-2. **Important**: Update the `WorkingDirectory` path in `/etc/systemd/system/locust.service` to match the actual location where you cloned the repository. The default path in the example file is `/root/locus-master/loadtest-yagna`.
+2. **Important**: Update the `WorkingDirectory` path in `/etc/systemd/system/locust-golem.service` to match the actual location where you cloned the repository. The default path in the example file is `/root/locus-master/loadtest-yagna`.
 
 3. Activate and start the service:
    ```bash
    sudo systemctl daemon-reload
-   sudo systemctl enable locust.service
-   sudo systemctl start locust.service
-   sudo systemctl status locust.service
+   sudo systemctl enable locust-golem.service
+   sudo systemctl start locust-golem.service
+   sudo systemctl status locust-golem.service
    ```
-   To view logs: `sudo journalctl -u locust.service -f`
+   To view logs: `sudo journalctl -u locust-golem.service -f`
 
 ### Service Configuration
 
-The service file (`golem/systemd/locust.service`) is configured to:
+The service file (`golem/systemd/locust-golem.service`) is configured to:
 - Run Locust in master mode
 - Bind the web interface to `0.0.0.0` (accessible from all network interfaces)
 - Automatically restart on failure with a 5-second delay
@@ -54,7 +54,7 @@ The service file (`golem/systemd/locust.service`) is configured to:
 
 To stop the service:
 ```bash
-sudo systemctl stop locust.service
+sudo systemctl stop locust-golem.service
 ```
 
 

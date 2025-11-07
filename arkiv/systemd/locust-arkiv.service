@@ -1,0 +1,14 @@
+[Unit]
+Description=Locust Arkiv Load Testing Master
+After=network.target
+
+[Service]
+WorkingDirectory=/root/locus-master/loadtest-yagna
+ExecStart=/usr/bin/poetry run locust -f arkiv/locustfile.py --master --web-host 0.0.0.0
+Restart=always
+RestartSec=5
+User=root
+
+[Install]
+WantedBy=multi-user.target
+
