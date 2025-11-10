@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=/root/locus-master/loadtest-yagna
-ExecStart=/usr/bin/poetry run locust -f golem/nanotask.py --master --web-host 0.0.0.0:8080
+ExecStart=/usr/bin/poetry run locust -f golem/nanotask.py --master --web-host 0.0.0.0
 Restart=always
 RestartSec=5
 User=root
