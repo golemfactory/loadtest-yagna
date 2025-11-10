@@ -1,6 +1,6 @@
-# Load Test Yagna
+# Load Test Yagna and Arkiv
 
-Load testing tool for Yagna using Locust.
+Load testing tools for Yagna and Arkiv using Locust.
 
 ## Systemd Service Setup
 
@@ -24,7 +24,7 @@ To set up the Locust master service on a machine using systemd:
    poetry install
    ```
 
-### Setup Steps
+### Golem Service Setup
 
 1. Copy the systemd service file to the systemd directory:
    ```bash
@@ -42,19 +42,41 @@ To set up the Locust master service on a machine using systemd:
    ```
    To view logs: `sudo journalctl -u locust-golem.service -f`
 
+### Arkiv Service Setup
+
+1. Copy the systemd service file to the systemd directory:
+   ```bash
+   sudo cp arkiv/systemd/locust-arkiv.service /etc/systemd/system/
+   ```
+
+2. **Important**: Update the `WorkingDirectory` path in `/etc/systemd/system/locust-arkiv.service` to match the actual location where you cloned the repository. The default path in the example file is `/root/locus-master/loadtest-yagna`.
+
+3. Activate and start the service:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable locust-arkiv.service
+   sudo systemctl start locust-arkiv.service
+   sudo systemctl status locust-arkiv.service
+   ```
+   To view logs: `sudo journalctl -u locust-arkiv.service -f`
+
 ### Service Configuration
 
-The service file (`golem/systemd/locust-golem.service`) is configured to:
+Both service files (`golem/systemd/locust-golem.service` and `arkiv/systemd/locust-arkiv.service`) are configured to:
 - Run Locust in master mode
 - Bind the web interface to `0.0.0.0` (accessible from all network interfaces)
 - Automatically restart on failure with a 5-second delay
 - Start automatically on system boot
 
-### Stopping the Service
+### Stopping the Services
 
-To stop the service:
+To stop a service:
 ```bash
+# Stop Golem service
 sudo systemctl stop locust-golem.service
+
+# Stop Arkiv service
+sudo systemctl stop locust-arkiv.service
 ```
 
 
