@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 WorkingDirectory=/root/locus-master/loadtest-yagna
-ExecStart=/usr/bin/poetry run locust -f arkiv/locustfile.py --master --web-host 0.0.0.0:8070
+ExecStart=/usr/bin/poetry run locust -f arkiv/locustfile.py --master --master-bind-port 5558 --web-host 0.0.0.0 --web-port 8070
 Restart=always
 RestartSec=5
 User=root
