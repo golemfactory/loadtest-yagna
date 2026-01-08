@@ -26,7 +26,7 @@ class YagnaHttpUser(FastHttpUser):
         with self.rest("GET", "/me", headers={
             "Authorization": f"Bearer {self.token}"
         }) as response:
-            logging.debug(response.json())
+            logging.debug(f"Identity response: {response.status_code} {response.json()}")
             profile = Profile(**response.json())
             return profile
     
