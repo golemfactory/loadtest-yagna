@@ -5,6 +5,7 @@ import math
 import logging
 import time
 import uuid
+import threading
 
 from locust import task, between, events
 
@@ -45,6 +46,8 @@ class YagnaRequestor(YagnaHttpUser):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.debit_note_thread = None
+        self.stop_debit_notes_tracking = threading.Event()
         logging.config.dictConfig({
             "version": 1,
             "formatters": {
@@ -66,6 +69,26 @@ class YagnaRequestor(YagnaHttpUser):
             "root": {"handlers": ["console", "file"], "level": "INFO"}
         })
 
+    def _stop_debit_note_thread(self):
+        """Stop the debit note handling thread."""
+        if self.debit_note_thread and self.debit_note_thread.is_alive():
+            logging.info("Stopping debit note thread")
+            self.stop_debit_notes_tracking.set()
+            self.debit_note_thread.join(timeout=5)
+            if self.debit_note_thread.is_alive():
+                logging.warning("Debit note thread did not stop gracefully")
+
+    def on_stop(self):
+        """
+        Called when the user stops. Ensures debit note thread is stopped.
+        
+        This method is part of Locust's User class lifecycle and is automatically
+        called when a simulated user stops running. See:
+        https://docs.locust.io/en/stable/writing-a-locustfile.html#on-start-and-on-stop-methods
+        """
+        logging.info("on_stop called - cleaning up debit note thread")
+        self._stop_debit_note_thread()
+
     def _delay_user_start(self):
         """Add a calculated delay based on user counter to spread out user execution over time."""
         global user_counter
@@ -75,6 +98,38 @@ class YagnaRequestor(YagnaHttpUser):
             user_counter += 1
             logging.info(f"Delaying user start by {delay:.2f} seconds (user #{user_counter}) to spread execution")
             time.sleep(delay)
+
+    def _start_debit_note_thread(self, agreement_id: str, allocation_id: str):
+        """Start the debit note handling thread."""
+        self.stop_debit_notes_tracking.clear()
+        self.debit_note_thread = threading.Thread(
+            target=self._handle_debit_notes,
+            args=(agreement_id, allocation_id),
+            daemon=True
+        )
+        self.debit_note_thread.start()
+        logging.info("Started debit note handling thread")
+
+    def _handle_debit_notes(self, agreement_id: str, allocation_id: str):
+        """Handle debit notes in a separate thread."""
+        while not self.stop_debit_notes_tracking.is_set():
+            try:
+                debit_notes = self.get_debit_notes(agreement_id=agreement_id, after_timestamp=get_formatted_timestamp(shift=-self.lasting))
+                if debit_notes:
+                    logging.info(f"Debit notes: {debit_notes}")
+                    for debit_note in debit_notes:
+                        if self.stop_debit_notes_tracking.is_set():
+                            break
+                        if self.accept_debit_note(debit_note["debitNoteId"], debit_note["totalAmountDue"], allocation_id):
+                            logging.info(f"Accepted debit note {debit_note['debitNoteId']}")
+                        else:
+                            logging.error(f"Failed to accept debit note {debit_note['debitNoteId']}")
+                            break
+            except Exception as e:
+                logging.error(f"Error handling debit notes: {e}")
+            
+            # Wait with timeout to allow checking stop event
+            self.stop_debit_notes_tracking.wait(timeout=0.5)
 
     @task
     def run_test_flow(self):
@@ -148,6 +203,9 @@ class YagnaRequestor(YagnaHttpUser):
                 self.clear_all(subscription_id, agreement_id, allocation_id, "VmDeploymentFailed")
                 return
 
+            # Start debit note handling thread
+            self._start_debit_note_thread(agreement_id, allocation_id)
+
             # execute activity in a loop till lasting time is over
             start_time = time.time()
             reason = "Success"
@@ -159,21 +217,17 @@ class YagnaRequestor(YagnaHttpUser):
                     logging.error(f"Failed to execute activity {activity_id}: {e}")
                     reason = "ActivityExecutionFailed"
                     break
-                debit_notes = self.get_debit_notes(agreement_id=agreement_id, after_timestamp=get_formatted_timestamp(shift=-self.lasting))
-                if debit_notes:
-                    logging.info(f"Debit notes: {debit_notes}")
-                    for debit_note in debit_notes:
-                        if self.accept_debit_note(debit_note["debitNoteId"], debit_note["totalAmountDue"], allocation_id):
-                            logging.info(f"Accepted debit note {debit_note['debitNoteId']}")
-                        else:
-                            logging.error(f"Failed to accept debit note {debit_note['debitNoteId']}")
-                            break
                 time.sleep(0.5)
+
+            # Stop debit note thread
+            self._stop_debit_note_thread()
 
             # clear all
             self.metrics.record_task_metrics(self.lasting, time.time() - start_time, self.userId)
             self.clear_all(subscription_id, agreement_id, allocation_id, reason)
             
         finally:
+            # Ensure debit note thread is stopped
+            self._stop_debit_note_thread()
             # Update user count at task end
             self.metrics.update_user_count(self.environment)
