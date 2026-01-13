@@ -138,7 +138,7 @@ class YagnaHttpUser(FastHttpUser):
                     "Authorization": f"Bearer {self.token}"
                 }, name="/market-api/v1/agreements/{agreement_id}/wait")
                 if not response.ok:
-                    logging.error(f"Failed to wait for agreement {agreement_id}")
+                    logging.warning(f"Failed to wait for agreement {agreement_id} ({response.status_code}): {response.content})")
                     continue
 
                 logging.info(f"Agreement approved for proposal {proposal.proposal.proposal_id}, provider: {proposal.proposal.provider_id}, agreement: {agreement_id}")
